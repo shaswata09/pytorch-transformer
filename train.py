@@ -2,11 +2,11 @@ from model import build_transformer
 from dataset import BilingualDataset, causal_mask
 from config import get_config, get_weights_file_path, latest_weights_file_path
 
-import torchtext.datasets as datasets
+# import torchtext.datasets as datasets
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
-from torch.optim.lr_scheduler import LambdaLR
+# from torch.optim.lr_scheduler import LambdaLR
 
 import warnings
 from tqdm import tqdm
@@ -22,6 +22,10 @@ from tokenizers.pre_tokenizers import Whitespace
 
 import torchmetrics
 from torch.utils.tensorboard import SummaryWriter
+
+import pandas as pd
+from datasets import Dataset as hf_dataset
+import ast
 
 def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device):
     sos_idx = tokenizer_tgt.token_to_id('[SOS]')
@@ -123,6 +127,7 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
 
 def get_all_sentences(ds, lang):
     for item in ds:
+        # print(type(item['translation']))
         yield item['translation'][lang]
 
 def get_or_build_tokenizer(config, ds, lang):
@@ -138,10 +143,21 @@ def get_or_build_tokenizer(config, ds, lang):
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
 
+def string_to_dict(x):
+    try:
+        return ast.literal_eval(x)
+    except (ValueError, SyntaxError):
+        return None
+
 def get_ds(config):
     # It only has the train split, so we divide it overselves
-    ds_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
-
+    # ds_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
+    translation_data_path = "/media/shaswata/4TB_1/Projects/transformer_umar/pytorch-transformer/data/dataset/en-bn.csv"
+    ds_df = pd.read_csv(translation_data_path)
+    ds_df['translation'] = ds_df['translation'].apply(string_to_dict)
+    ds_raw = hf_dataset.from_pandas(ds_df)
+    
+    
     # Build tokenizers
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
     tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['lang_tgt'])
